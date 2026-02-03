@@ -32,6 +32,12 @@ vim.api.nvim_create_autocmd({ 'FocusGained', 'BufEnter', 'CursorHold' }, {
   command = 'checktime',
 })
 
+-- Reload config
+vim.keymap.set('n', '<leader>R', function()
+  dofile(vim.env.MYVIMRC)
+  vim.notify('Config reloaded', vim.log.levels.INFO)
+end, { desc = 'Reload config' })
+
 -- Python uses 4-space indent
 vim.api.nvim_create_autocmd('FileType', {
   pattern = 'python',
@@ -358,7 +364,7 @@ require('lazy').setup {
         },
         mapping = cmp.mapping.preset.insert {
           ['<C-Space>'] = cmp.mapping.complete(),
-          ['<CR>'] = cmp.mapping.confirm { select = true },
+          ['<CR>'] = cmp.mapping.confirm { select = false },
           ['<Tab>'] = cmp.mapping.select_next_item(),
           ['<S-Tab>'] = cmp.mapping.select_prev_item(),
         },
@@ -437,16 +443,16 @@ require('lazy').setup {
       end, { desc = 'Harpoon menu' })
       vim.keymap.set('n', '<C-1>', function()
         harpoon:list():select(1)
-      end)
+      end, { desc = 'Harpoon file 1' })
       vim.keymap.set('n', '<C-2>', function()
         harpoon:list():select(2)
-      end)
+      end, { desc = 'Harpoon file 2' })
       vim.keymap.set('n', '<C-3>', function()
         harpoon:list():select(3)
-      end)
+      end, { desc = 'Harpoon file 3' })
       vim.keymap.set('n', '<C-4>', function()
         harpoon:list():select(4)
-      end)
+      end, { desc = 'Harpoon file 4' })
     end,
   },
 
@@ -487,7 +493,7 @@ vim.lsp.config('lua_ls', {
     Lua = {
       runtime = { version = 'LuaJIT' },
       workspace = {
-        library = vim.api.nvim_get_runtime_file('', true),
+        library = { vim.env.VIMRUNTIME },
         checkThirdParty = false,
       },
     },

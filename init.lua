@@ -219,6 +219,14 @@ if not package.loaded['lazy'] then
     },
 
     -----------------------------
+    -- Java
+    -----------------------------
+    {
+      'mfussenegger/nvim-jdtls',
+      ft = 'java',
+    },
+
+    -----------------------------
     -- LSP (Mason for auto-install)
     -----------------------------
     {
@@ -237,6 +245,7 @@ if not package.loaded['lazy'] then
           'ts_ls',
           'eslint',
           'lua_ls',
+          'jdtls',
         },
       },
     },
@@ -267,6 +276,7 @@ if not package.loaded['lazy'] then
           json = { 'prettier' },
           clojure = { 'cljfmt' },
           lua = { 'stylua' },
+          -- java uses LSP formatting via jdtls (lsp_fallback = true)
         },
         format_on_save = {
           timeout_ms = 500,
@@ -295,6 +305,7 @@ if not package.loaded['lazy'] then
             'css',
             'markdown',
             'markdown_inline',
+            'java',
           },
           highlight = { enable = true },
           indent = { enable = true },
@@ -558,6 +569,40 @@ vim.lsp.config('eslint', {
   capabilities = capabilities,
 })
 
+-- Java (nvim-jdtls handles its own startup)
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'java',
+  callback = function()
+    local jdtls_path = vim.fn.stdpath 'data' .. '/mason/packages/jdtls'
+    local config = {
+      cmd = {
+        'java',
+        '-Declipse.application=org.eclipse.jdt.ls.core.id1',
+        '-Dosgi.bundles.defaultStartLevel=4',
+        '-Declipse.product=org.eclipse.jdt.ls.core.product',
+        '-Dlog.protocol=true',
+        '-Dlog.level=ALL',
+        '-Xmx1g',
+        '--add-modules=ALL-SYSTEM',
+        '--add-opens', 'java.base/java.util=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+        '-jar', vim.fn.glob(jdtls_path .. '/plugins/org.eclipse.equinox.launcher_*.jar'),
+        '-configuration', jdtls_path .. '/config_linux',
+        '-data', vim.fn.stdpath 'cache' .. '/jdtls/' .. vim.fn.fnamemodify(vim.fn.getcwd(), ':p:h:t'),
+      },
+      root_dir = vim.fs.dirname(vim.fs.find({ 'gradlew', 'mvnw', '.git', 'pom.xml', 'build.gradle' }, { upward = true })[1]),
+      capabilities = capabilities,
+      settings = {
+        java = {
+          signatureHelp = { enabled = true },
+          contentProvider = { preferred = 'fernflower' },
+        },
+      },
+    }
+    require('jdtls').start_or_attach(config)
+  end,
+})
+
 -- Enable all LSPs
 vim.lsp.enable 'lua_ls'
 vim.lsp.enable 'marksman'
@@ -645,6 +690,10 @@ vim.api.nvim_create_autocmd('FileType', {
 -- ,er            Eval root form
 -- ,eb            Eval buffer
 -- ,lv            Log vertical split
+--
+-- JAVA (nvim-jdtls)
+-- All standard LSP keymaps work (gd, gr, K, etc.)
+-- <leader>cf     Format (via jdtls)
 --
 -- PYTHON (neotest)
 -- <leader>tt     Run nearest test

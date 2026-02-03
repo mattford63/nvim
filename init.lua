@@ -32,10 +32,12 @@ vim.api.nvim_create_autocmd({ 'FocusGained', 'BufEnter', 'CursorHold' }, {
   command = 'checktime',
 })
 
--- Reload config
+-- Reload config (options only - plugins require restart)
 vim.keymap.set('n', '<leader>R', function()
+  -- Re-source just the options portion by re-running this file
+  -- but lazy.nvim will skip setup if already loaded
   dofile(vim.env.MYVIMRC)
-  vim.notify('Config reloaded', vim.log.levels.INFO)
+  vim.notify('Config reloaded (restart nvim for plugin changes)', vim.log.levels.INFO)
 end, { desc = 'Reload config' })
 
 -- Python uses 4-space indent
@@ -66,7 +68,9 @@ vim.opt.rtp:prepend(lazypath)
 --------------------------------------------------------------------------------
 -- PLUGINS
 --------------------------------------------------------------------------------
-require('lazy').setup {
+-- Only setup lazy once (allows config reload for options)
+if not package.loaded['lazy'] then
+  require('lazy').setup {
   -----------------------------
   -- Colorschemes
   -----------------------------
@@ -477,7 +481,8 @@ require('lazy').setup {
 
   -- Icons
   { 'echasnovski/mini.icons', version = false, opts = {} },
-}
+  }
+end
 
 --------------------------------------------------------------------------------
 -- LSP CONFIGURATION (Neovim 0.11+ style)

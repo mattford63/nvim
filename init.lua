@@ -32,6 +32,16 @@ vim.api.nvim_create_autocmd({ 'FocusGained', 'BufEnter', 'CursorHold' }, {
   command = 'checktime',
 })
 
+-- Auto-save files on insert leave or text change
+vim.api.nvim_create_autocmd({ 'InsertLeave', 'TextChanged' }, {
+  pattern = '*',
+  callback = function()
+    if vim.bo.modified and vim.fn.expand '%' ~= '' and vim.bo.buftype == '' then
+      vim.cmd 'silent! write'
+    end
+  end,
+})
+
 -- Reload config (options only - plugins require restart)
 vim.keymap.set('n', '<leader>R', function()
   -- Re-source just the options portion by re-running this file
@@ -111,9 +121,7 @@ if not package.loaded['lazy'] then
         { '<leader>ad', '<cmd>ClaudeCodeDiffDeny<cr>', desc = 'Deny diff' },
       },
       opts = {
-        -- Terminal settings
         terminal = {
-          autostart = true,
           provider = 'none',
           split_side = 'right',
           split_width_percentage = 0.4,
@@ -149,6 +157,7 @@ if not package.loaded['lazy'] then
         { '<leader>fs', '<cmd>Telescope lsp_document_symbols<cr>', desc = 'Symbols' },
         { '<leader>fr', '<cmd>Telescope lsp_references<cr>', desc = 'References' },
         { '<leader>fd', '<cmd>Telescope diagnostics<cr>', desc = 'Diagnostics' },
+        { '<leader>fz', '<cmd>Telescope spell_suggest<cr>', desc = 'Spell suggest' },
       },
     },
 
@@ -166,6 +175,7 @@ if not package.loaded['lazy'] then
           { '<leader>c', group = 'code' },
           { '<leader>a', group = 'ai' },
           { '<leader>t', group = 'test' },
+          { '<leader>r', group = 'repl' },
         }
       end,
     },
@@ -247,6 +257,10 @@ if not package.loaded['lazy'] then
           'lua_ls',
           'jdtls',
         },
+        handlers = {
+          -- Skip jdtls - nvim-jdtls handles it via FileType autocmd
+          jdtls = function() end,
+        },
       },
     },
 
@@ -309,6 +323,15 @@ if not package.loaded['lazy'] then
           },
           highlight = { enable = true },
           indent = { enable = true },
+          incremental_selection = {
+            enable = true,
+            keymaps = {
+              init_selection = '<C-space>',
+              node_incremental = '<C-space>',
+              node_decremental = '<C-backspace>',
+              scope_incremental = '<TAB>',
+            },
+          },
         }
       end,
     },
@@ -396,6 +419,7 @@ if not package.loaded['lazy'] then
         'nvim-lua/plenary.nvim',
         'nvim-neotest/neotest-python',
         'nvim-neotest/nvim-nio',
+        'rcasia/neotest-java',
       },
       keys = {
         {
@@ -433,6 +457,9 @@ if not package.loaded['lazy'] then
             require 'neotest-python' {
               dap = { justMyCode = false },
               runner = 'pytest',
+            },
+            require 'neotest-java' {
+              junit_jar = vim.fn.expand '~/.local/share/nvim/neotest-java/junit-platform-console-standalone-1.10.2.jar',
             },
           },
         }
@@ -472,6 +499,126 @@ if not package.loaded['lazy'] then
     },
 
     -----------------------------
+    -- Git (lazygit.nvim)
+    -----------------------------
+    {
+      'kdheepak/lazygit.nvim',
+      keys = {
+        { '<leader>gg', '<cmd>LazyGit<cr>', desc = 'LazyGit' },
+      },
+    },
+
+    -----------------------------
+    -- REPL (iron.nvim)
+    -----------------------------
+    {
+      'Vigemus/iron.nvim',
+      keys = {
+        { '<leader>rs', '<cmd>IronRepl<cr>', desc = 'Start REPL' },
+        { '<leader>rr', '<cmd>IronRestart<cr>', desc = 'Restart REPL' },
+        { '<leader>rf', '<cmd>IronFocus<cr>', desc = 'Focus REPL' },
+        { '<leader>rh', '<cmd>IronHide<cr>', desc = 'Hide REPL' },
+        -- Start specific REPLs (useful from markdown)
+        { '<leader>r1', '<cmd>IronRepl java<cr>', desc = 'Start jshell' },
+        { '<leader>r2', '<cmd>IronRepl python<cr>', desc = 'Start python' },
+        { '<leader>r3', '<cmd>IronRepl bash<cr>', desc = 'Start bash' },
+        { '<leader>r4', '<cmd>IronRepl typescript<cr>', desc = 'Start ts-node' },
+        { '<leader>r5', '<cmd>IronRepl ki<cr>', desc = 'Start ki' },
+      },
+      config = function()
+        require('iron.core').setup {
+          config = {
+            repl_definition = {
+              python = { command = { 'python3' } },
+              sh = { command = { 'bash' } },
+              bash = { command = { 'bash' } },
+              java = { command = { 'jshell' } },
+              typescript = { command = { 'npx', 'ts-node' } },
+              javascript = { command = { 'node' } },
+              lua = { command = { 'lua' } },
+              kotlin = { command = { 'ki' } },
+              ki = { command = { 'ki' } },
+            },
+            repl_open_cmd = 'vertical botright 50 split',
+          },
+          keymaps = {
+            send_motion = '<leader>rc',
+            visual_send = '<leader>rv',
+            send_line = '<leader>rl',
+            send_until_cursor = '<leader>ru',
+            send_file = '<leader>rF',
+            cr = '<leader>r<cr>',
+            interrupt = '<leader>ri',
+            exit = '<leader>rq',
+            clear = '<leader>rL',
+          },
+          ignore_blank_lines = true,
+        }
+
+        -- Map code block languages to REPL filetypes
+        local lang_to_ft = {
+          java = 'java',
+          python = 'python',
+          py = 'python',
+          bash = 'bash',
+          sh = 'bash',
+          shell = 'bash',
+          typescript = 'typescript',
+          ts = 'typescript',
+          javascript = 'javascript',
+          js = 'javascript',
+          lua = 'lua',
+          kotlin = 'kotlin',
+          kt = 'kotlin',
+          ki = 'ki',
+        }
+
+        -- Get code block info at cursor using treesitter
+        local function get_code_block_at_cursor()
+          local node = vim.treesitter.get_node()
+          -- Walk up to find fenced_code_block
+          while node and node:type() ~= 'fenced_code_block' do
+            node = node:parent()
+          end
+          if not node then return nil, nil end
+
+          local lang = nil
+          local code_lines = {}
+
+          for child in node:iter_children() do
+            if child:type() == 'info_string' then
+              lang = vim.treesitter.get_node_text(child, 0):match('%S+')
+            elseif child:type() == 'code_fence_content' then
+              local text = vim.treesitter.get_node_text(child, 0)
+              for line in text:gmatch('[^\n]+') do
+                table.insert(code_lines, line)
+              end
+            end
+          end
+
+          return lang, code_lines
+        end
+
+        -- Send code block at cursor to appropriate REPL
+        local function send_code_block()
+          local lang, lines = get_code_block_at_cursor()
+          if not lang then
+            vim.notify('Not in a code block', vim.log.levels.WARN)
+            return
+          end
+          local ft = lang_to_ft[lang:lower()]
+          if not ft then
+            vim.notify('No REPL configured for: ' .. lang, vim.log.levels.WARN)
+            return
+          end
+          require('iron.core').send(ft, lines)
+        end
+
+        vim.keymap.set('n', '<leader>rb', send_code_block, { desc = 'Send code block to REPL' })
+      end,
+    },
+
+    -----------------------------
     -- Quality of life
     -----------------------------
     { 'windwp/nvim-autopairs', event = 'InsertEnter', opts = {} },
@@ -483,6 +630,30 @@ if not package.loaded['lazy'] then
           add = { text = '+' },
           change = { text = '~' },
           delete = { text = '_' },
+        },
+      },
+    },
+
+    -----------------------------
+    -- Statusline (agnoster/powerline style)
+    -----------------------------
+    {
+      'nvim-lualine/lualine.nvim',
+      dependencies = { 'nvim-tree/nvim-web-devicons' },
+      opts = {
+        options = {
+          theme = 'catppuccin',
+          component_separators = { left = '', right = '' },
+          section_separators = { left = '', right = '' },
+          globalstatus = true,
+        },
+        sections = {
+          lualine_a = { 'mode' },
+          lualine_b = { 'branch', 'diff', 'diagnostics' },
+          lualine_c = { { 'filename', path = 1 } },
+          lualine_x = { 'encoding', 'fileformat', 'filetype' },
+          lualine_y = { 'progress' },
+          lualine_z = { 'location' },
         },
       },
     },
@@ -610,6 +781,8 @@ vim.lsp.enable 'clojure_lsp'
 vim.lsp.enable 'pyright'
 vim.lsp.enable 'ts_ls'
 vim.lsp.enable 'eslint'
+-- Disable default jdtls - nvim-jdtls handles it
+vim.lsp.enable('jdtls', false)
 
 -- LSP keymaps on attach
 vim.api.nvim_create_autocmd('LspAttach', {
@@ -648,6 +821,8 @@ vim.api.nvim_create_autocmd('FileType', {
     vim.opt_local.wrap = true
     vim.opt_local.linebreak = true
     vim.opt_local.textwidth = 80
+    vim.opt_local.spell = true
+    vim.opt_local.spelllang = 'en_gb'
   end,
 })
 
@@ -700,6 +875,28 @@ vim.api.nvim_create_autocmd('FileType', {
 -- <leader>tf     Run file tests
 -- <leader>to     Test output
 -- <leader>ts     Test summary
+--
+-- REPL (iron.nvim) - Python, Java, Kotlin, TypeScript, Bash, Lua
+-- <leader>rs     Start REPL for current filetype
+-- <leader>r1     Start jshell
+-- <leader>r2     Start python
+-- <leader>r3     Start bash
+-- <leader>r4     Start ts-node
+-- <leader>r5     Start ki
+-- <leader>rr     Restart REPL
+-- <leader>rf     Focus REPL
+-- <leader>rh     Hide REPL
+-- <leader>rv     Send visual selection (visual mode)
+-- <leader>rl     Send current line
+-- <leader>rc     Send motion (e.g., <leader>rcap for paragraph)
+-- <leader>rF     Send entire file
+-- <leader>ri     Interrupt REPL
+-- <leader>rq     Exit/quit REPL
+-- <leader>rL     Clear REPL
+-- <leader>rb     Send code block to REPL (auto-detects language from fence)
+--
+-- GIT (lazygit.nvim)
+-- <leader>gg     Open LazyGit
 --
 -- HARPOON
 -- <leader>ha     Add file

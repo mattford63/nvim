@@ -86,8 +86,7 @@ if not package.loaded['lazy'] then
     -----------------------------
     {
       'folke/tokyonight.nvim',
-      lazy = false,
-      priority = 1002,
+      lazy = true,
     },
     {
       'catppuccin/nvim',
@@ -304,6 +303,7 @@ if not package.loaded['lazy'] then
     -----------------------------
     {
       'nvim-treesitter/nvim-treesitter',
+      branch = 'main',
       lazy = false,
       build = ':TSUpdate',
       config = function()

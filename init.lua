@@ -326,10 +326,10 @@ if not package.loaded['lazy'] then
           incremental_selection = {
             enable = true,
             keymaps = {
-              init_selection = '<C-space>',
-              node_incremental = '<C-space>',
-              node_decremental = '<C-backspace>',
-              scope_incremental = '<TAB>',
+              init_selection = '<leader>v',
+              node_incremental = '<leader>v',
+              node_decremental = '<leader>V',
+              scope_incremental = false,
             },
           },
         }
@@ -529,7 +529,9 @@ if not package.loaded['lazy'] then
         require('iron.core').setup {
           config = {
             repl_definition = {
-              python = { command = { 'python3' } },
+              python = {
+                command = vim.uv.fs_stat('uv.lock') and { 'uv', 'run', 'python3' } or { 'python3' },
+              },
               sh = { command = { 'bash' } },
               bash = { command = { 'bash' } },
               java = { command = { 'jshell' } },
@@ -580,17 +582,19 @@ if not package.loaded['lazy'] then
           while node and node:type() ~= 'fenced_code_block' do
             node = node:parent()
           end
-          if not node then return nil, nil end
+          if not node then
+            return nil, nil
+          end
 
           local lang = nil
           local code_lines = {}
 
           for child in node:iter_children() do
             if child:type() == 'info_string' then
-              lang = vim.treesitter.get_node_text(child, 0):match('%S+')
+              lang = vim.treesitter.get_node_text(child, 0):match '%S+'
             elseif child:type() == 'code_fence_content' then
               local text = vim.treesitter.get_node_text(child, 0)
-              for line in text:gmatch('[^\n]+') do
+              for line in text:gmatch '[^\n]+' do
                 table.insert(code_lines, line)
               end
             end
@@ -656,6 +660,25 @@ if not package.loaded['lazy'] then
           lualine_z = { 'location' },
         },
       },
+    },
+
+    -----------------------------
+    -- Markdown preview
+    -----------------------------
+    {
+      'iamcco/markdown-preview.nvim',
+      build = 'cd app && npm install',
+      ft = 'markdown',
+      keys = {
+        { '<leader>mp', '<cmd>MarkdownPreviewToggle<cr>', desc = 'Markdown preview' },
+      },
+      config = function()
+        vim.g.mkdp_port = '9999'
+        vim.g.mkdp_open_to_the_world = 1
+        vim.g.mkdp_open_ip = 'barry'
+        vim.g.mkdp_browser = 'none'
+        vim.g.mkdp_echo_preview_url = 1
+      end,
     },
 
     -- Better UI components
@@ -755,11 +778,16 @@ vim.api.nvim_create_autocmd('FileType', {
         '-Dlog.level=ALL',
         '-Xmx1g',
         '--add-modules=ALL-SYSTEM',
-        '--add-opens', 'java.base/java.util=ALL-UNNAMED',
-        '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
-        '-jar', vim.fn.glob(jdtls_path .. '/plugins/org.eclipse.equinox.launcher_*.jar'),
-        '-configuration', jdtls_path .. '/config_linux',
-        '-data', vim.fn.stdpath 'cache' .. '/jdtls/' .. vim.fn.fnamemodify(vim.fn.getcwd(), ':p:h:t'),
+        '--add-opens',
+        'java.base/java.util=ALL-UNNAMED',
+        '--add-opens',
+        'java.base/java.lang=ALL-UNNAMED',
+        '-jar',
+        vim.fn.glob(jdtls_path .. '/plugins/org.eclipse.equinox.launcher_*.jar'),
+        '-configuration',
+        jdtls_path .. '/config_linux',
+        '-data',
+        vim.fn.stdpath 'cache' .. '/jdtls/' .. vim.fn.fnamemodify(vim.fn.getcwd(), ':p:h:t'),
       },
       root_dir = vim.fs.dirname(vim.fs.find({ 'gradlew', 'mvnw', '.git', 'pom.xml', 'build.gradle' }, { upward = true })[1]),
       capabilities = capabilities,

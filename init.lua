@@ -304,69 +304,61 @@ if not package.loaded['lazy'] then
     -----------------------------
     {
       'nvim-treesitter/nvim-treesitter',
+      lazy = false,
       build = ':TSUpdate',
       config = function()
-        require('nvim-treesitter.configs').setup {
-          ensure_installed = {
-            'clojure',
-            'python',
-            'typescript',
-            'tsx',
-            'javascript',
-            'json',
-            'lua',
-            'html',
-            'css',
-            'markdown',
-            'markdown_inline',
-            'java',
-          },
-          highlight = { enable = true },
-          indent = { enable = true },
-          incremental_selection = {
-            enable = true,
-            keymaps = {
-              init_selection = '<leader>v',
-              node_incremental = '<leader>v',
-              node_decremental = '<leader>V',
-              scope_incremental = false,
-            },
-          },
+        require('nvim-treesitter').install {
+          'clojure', 'python', 'typescript', 'tsx', 'javascript',
+          'json', 'lua', 'html', 'css', 'markdown', 'markdown_inline', 'java', 'bash',
         }
+        vim.api.nvim_create_autocmd('FileType', {
+          callback = function()
+            if pcall(vim.treesitter.start) then
+              vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+            end
+          end,
+        })
       end,
     },
 
     {
+      'MeanderingProgrammer/treesitter-modules.nvim',
+      lazy = false,
+      dependencies = { 'nvim-treesitter/nvim-treesitter' },
+      opts = {
+        incremental_selection = {
+          enable = true,
+          keymaps = {
+            init_selection = '<leader>v',
+            node_incremental = '<leader>v',
+            node_decremental = '<leader>V',
+            scope_incremental = false,
+          },
+        },
+      },
+    },
+
+    {
       'nvim-treesitter/nvim-treesitter-textobjects',
+      lazy = false,
       dependencies = { 'nvim-treesitter/nvim-treesitter' },
       config = function()
-        require('nvim-treesitter.configs').setup {
-          textobjects = {
-            select = {
-              enable = true,
-              lookahead = true,
-              keymaps = {
-                ['af'] = '@function.outer',
-                ['if'] = '@function.inner',
-                ['ac'] = '@class.outer',
-                ['ic'] = '@class.inner',
-                ['aa'] = '@parameter.outer',
-                ['ia'] = '@parameter.inner',
-              },
-            },
-            move = {
-              enable = true,
-              goto_next_start = {
-                [']m'] = '@function.outer',
-                [']]'] = '@class.outer',
-              },
-              goto_prev_start = {
-                ['[m'] = '@function.outer',
-                ['[['] = '@class.outer',
-              },
-            },
-          },
+        require('nvim-treesitter-textobjects').setup {
+          select = { lookahead = true },
+          move = { set_jumps = true },
         }
+        local select_fn = require('nvim-treesitter-textobjects.select').select_textobject
+        local move = require('nvim-treesitter-textobjects.move')
+        vim.keymap.set({ 'x', 'o' }, 'af', function() select_fn('@function.outer', 'textobjects') end)
+        vim.keymap.set({ 'x', 'o' }, 'if', function() select_fn('@function.inner', 'textobjects') end)
+        vim.keymap.set({ 'x', 'o' }, 'ac', function() select_fn('@class.outer', 'textobjects') end)
+        vim.keymap.set({ 'x', 'o' }, 'ic', function() select_fn('@class.inner', 'textobjects') end)
+        vim.keymap.set({ 'x', 'o' }, 'aa', function() select_fn('@parameter.outer', 'textobjects') end)
+        vim.keymap.set({ 'x', 'o' }, 'ia', function() select_fn('@parameter.inner', 'textobjects') end)
+        vim.keymap.set({ 'n', 'x', 'o' }, ']m', function() move.goto_next_start('@function.outer', 'textobjects') end)
+        vim.keymap.set({ 'n', 'x', 'o' }, ']]', function() move.goto_next_start('@class.outer', 'textobjects') end)
+        vim.keymap.set({ 'n', 'x', 'o' }, '[m', function() move.goto_previous_start('@function.outer', 'textobjects') end)
+        vim.keymap.set({ 'n', 'x', 'o' }, '[[', function() move.goto_previous_start('@class.outer', 'textobjects') end)
       end,
     },
 

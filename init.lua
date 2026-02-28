@@ -146,7 +146,6 @@ if not package.loaded['lazy'] then
     -----------------------------
     {
       'nvim-telescope/telescope.nvim',
-      branch = '0.1.x',
       dependencies = { 'nvim-lua/plenary.nvim' },
       keys = {
         { '<leader>ff', '<cmd>Telescope find_files<cr>', desc = 'Find files' },
@@ -303,7 +302,6 @@ if not package.loaded['lazy'] then
     -----------------------------
     {
       'nvim-treesitter/nvim-treesitter',
-      branch = 'main',
       lazy = false,
       build = ':TSUpdate',
       config = function()
@@ -438,7 +436,10 @@ if not package.loaded['lazy'] then
         {
           '<leader>ts',
           function()
-            require('neotest').summary.toggle()
+            local ok, err = pcall(require('neotest').summary.toggle)
+            if not ok and not err:match('Invalid window') then
+              error(err)
+            end
           end,
           desc = 'Test summary',
         },
@@ -450,9 +451,7 @@ if not package.loaded['lazy'] then
               dap = { justMyCode = false },
               runner = 'pytest',
             },
-            require 'neotest-java' {
-              junit_jar = vim.fn.expand '~/.local/share/nvim/neotest-java/junit-platform-console-standalone-1.10.2.jar',
-            },
+            require 'neotest-java' {},
           },
         }
       end,

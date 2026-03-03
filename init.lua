@@ -127,6 +127,41 @@ if not package.loaded['lazy'] then
         },
       },
     },
+    {
+      'juxt/allium-tools',
+      config = function(plugin)
+        vim.opt.rtp:append(plugin.dir .. '/packages/nvim-allium')
+
+        -- Register .allium filetype
+        vim.filetype.add { extension = { allium = 'allium' } }
+
+        -- Register allium tree-sitter parser for the new main branch API
+        -- Uses TSUpdate autocmd so the entry survives reload_parsers()
+        local grammar_path = plugin.dir .. '/packages/tree-sitter-allium'
+        local allium_parser_info = {
+          install_info = {
+            path = grammar_path,
+            queries = 'queries/allium',
+          },
+          filetype = 'allium',
+        }
+        local function register_allium_parser()
+          local parsers = require 'nvim-treesitter.parsers'
+          if not parsers.allium then
+            parsers.allium = allium_parser_info
+          end
+        end
+        register_allium_parser()
+        vim.api.nvim_create_autocmd('User', {
+          pattern = 'TSUpdate',
+          callback = register_allium_parser,
+        })
+        require('nvim-treesitter').install { 'allium' }
+      end,
+      dependencies = {
+        'nvim-treesitter/nvim-treesitter',
+      },
+    },
 
     -- Snacks.nvim (enhances claudecode terminal + other goodies)
     {
@@ -302,12 +337,24 @@ if not package.loaded['lazy'] then
     -----------------------------
     {
       'nvim-treesitter/nvim-treesitter',
+      branch = 'main',
       lazy = false,
       build = ':TSUpdate',
       config = function()
         require('nvim-treesitter').install {
-          'clojure', 'python', 'typescript', 'tsx', 'javascript',
-          'json', 'lua', 'html', 'css', 'markdown', 'markdown_inline', 'java', 'bash',
+          'clojure',
+          'python',
+          'typescript',
+          'tsx',
+          'javascript',
+          'json',
+          'lua',
+          'html',
+          'css',
+          'markdown',
+          'markdown_inline',
+          'java',
+          'bash',
         }
         vim.api.nvim_create_autocmd('FileType', {
           callback = function()
@@ -346,17 +393,37 @@ if not package.loaded['lazy'] then
           move = { set_jumps = true },
         }
         local select_fn = require('nvim-treesitter-textobjects.select').select_textobject
-        local move = require('nvim-treesitter-textobjects.move')
-        vim.keymap.set({ 'x', 'o' }, 'af', function() select_fn('@function.outer', 'textobjects') end)
-        vim.keymap.set({ 'x', 'o' }, 'if', function() select_fn('@function.inner', 'textobjects') end)
-        vim.keymap.set({ 'x', 'o' }, 'ac', function() select_fn('@class.outer', 'textobjects') end)
-        vim.keymap.set({ 'x', 'o' }, 'ic', function() select_fn('@class.inner', 'textobjects') end)
-        vim.keymap.set({ 'x', 'o' }, 'aa', function() select_fn('@parameter.outer', 'textobjects') end)
-        vim.keymap.set({ 'x', 'o' }, 'ia', function() select_fn('@parameter.inner', 'textobjects') end)
-        vim.keymap.set({ 'n', 'x', 'o' }, ']m', function() move.goto_next_start('@function.outer', 'textobjects') end)
-        vim.keymap.set({ 'n', 'x', 'o' }, ']]', function() move.goto_next_start('@class.outer', 'textobjects') end)
-        vim.keymap.set({ 'n', 'x', 'o' }, '[m', function() move.goto_previous_start('@function.outer', 'textobjects') end)
-        vim.keymap.set({ 'n', 'x', 'o' }, '[[', function() move.goto_previous_start('@class.outer', 'textobjects') end)
+        local move = require 'nvim-treesitter-textobjects.move'
+        vim.keymap.set({ 'x', 'o' }, 'af', function()
+          select_fn('@function.outer', 'textobjects')
+        end)
+        vim.keymap.set({ 'x', 'o' }, 'if', function()
+          select_fn('@function.inner', 'textobjects')
+        end)
+        vim.keymap.set({ 'x', 'o' }, 'ac', function()
+          select_fn('@class.outer', 'textobjects')
+        end)
+        vim.keymap.set({ 'x', 'o' }, 'ic', function()
+          select_fn('@class.inner', 'textobjects')
+        end)
+        vim.keymap.set({ 'x', 'o' }, 'aa', function()
+          select_fn('@parameter.outer', 'textobjects')
+        end)
+        vim.keymap.set({ 'x', 'o' }, 'ia', function()
+          select_fn('@parameter.inner', 'textobjects')
+        end)
+        vim.keymap.set({ 'n', 'x', 'o' }, ']m', function()
+          move.goto_next_start('@function.outer', 'textobjects')
+        end)
+        vim.keymap.set({ 'n', 'x', 'o' }, ']]', function()
+          move.goto_next_start('@class.outer', 'textobjects')
+        end)
+        vim.keymap.set({ 'n', 'x', 'o' }, '[m', function()
+          move.goto_previous_start('@function.outer', 'textobjects')
+        end)
+        vim.keymap.set({ 'n', 'x', 'o' }, '[[', function()
+          move.goto_previous_start('@class.outer', 'textobjects')
+        end)
       end,
     },
 
@@ -437,7 +504,7 @@ if not package.loaded['lazy'] then
           '<leader>ts',
           function()
             local ok, err = pcall(require('neotest').summary.toggle)
-            if not ok and not err:match('Invalid window') then
+            if not ok and not err:match 'Invalid window' then
               error(err)
             end
           end,
@@ -521,7 +588,7 @@ if not package.loaded['lazy'] then
           config = {
             repl_definition = {
               python = {
-                command = vim.uv.fs_stat('uv.lock') and { 'uv', 'run', 'python3' } or { 'python3' },
+                command = vim.uv.fs_stat 'uv.lock' and { 'uv', 'run', 'python3' } or { 'python3' },
               },
               sh = { command = { 'bash' } },
               bash = { command = { 'bash' } },
@@ -793,6 +860,13 @@ vim.api.nvim_create_autocmd('FileType', {
   end,
 })
 
+vim.lsp.config('allium', {
+  cmd = { 'allium-lsp', '--stdio' },
+  filetypes = { 'allium' },
+  root_markers = { 'allium.config.json', '.git' },
+  capabilities = capabilities,
+})
+
 -- Enable all LSPs
 vim.lsp.enable 'lua_ls'
 vim.lsp.enable 'marksman'
@@ -800,6 +874,7 @@ vim.lsp.enable 'clojure_lsp'
 vim.lsp.enable 'pyright'
 vim.lsp.enable 'ts_ls'
 vim.lsp.enable 'eslint'
+vim.lsp.enable 'allium'
 -- Disable default jdtls - nvim-jdtls handles it
 vim.lsp.enable('jdtls', false)
 
